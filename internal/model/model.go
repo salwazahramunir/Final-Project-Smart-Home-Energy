@@ -16,6 +16,23 @@ type TapasResponse struct {
 	Aggregator  string   `json:"aggregator"`
 }
 
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type ChatRequest struct {
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
+	MaxToken int       `json:"max_tokens"`
+	Stream   bool      `json:"stream"`
+}
+
+type Choice struct {
+	Index   int     `json:"index"`
+	Message Message `json:"message"`
+}
+
 type ChatResponse struct {
-	GeneratedText string `json:"generated_text"`
+	Choices []Choice `json:"choices"`
 }

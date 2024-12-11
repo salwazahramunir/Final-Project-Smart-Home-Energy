@@ -82,6 +82,31 @@ func UploadFile() gin.HandlerFunc {
 
 func ChatAI() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"result": "haii"})
+		var request model.ChatAIRequest
+
+		// Bind the form data
+		if err := c.ShouldBind(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		token, err := getToken()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		chatResponse, err := aiService.ChatWithAI(request.Query, token)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		response := model.ResponseSuccess{
+			Status: "Success",
+			Answer: chatResponse.Choices[0].Message.Content,
+		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }
