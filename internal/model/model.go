@@ -22,10 +22,12 @@ type Message struct {
 }
 
 type ChatRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-	MaxToken int       `json:"max_tokens"`
-	Stream   bool      `json:"stream"`
+	Model      string    `json:"model"`
+	Messages   []Message `json:"messages"`
+	Temperatur float32   `json:"temperature"`
+	MaxToken   int       `json:"max_tokens"`
+	TopP       float32   `json:"top_p"`
+	Stream     bool      `json:"stream"`
 }
 
 type Choice struct {

@@ -75,15 +75,17 @@ func (s *AIService) AnalyzeData(table map[string][]string, query, token string) 
 func (s *AIService) ChatWithAI(query, token string) (model.ChatResponse, error) {
 	// TODO: answer here
 	inputs := model.ChatRequest{
-		Model: "microsoft/Phi-3.5-mini-instruct",
+		Model: "mistralai/Mistral-Nemo-Instruct-2407",
 		Messages: []model.Message{
 			{
 				Role:    "user",
 				Content: query,
 			},
 		},
-		MaxToken: 500,
-		Stream:   false,
+		Temperatur: 0.5,
+		MaxToken:   2048,
+		TopP:       0.7,
+		Stream:     false,
 	}
 
 	jsonData, err := json.Marshal(inputs)
@@ -92,7 +94,7 @@ func (s *AIService) ChatWithAI(query, token string) (model.ChatResponse, error) 
 		return model.ChatResponse{}, err
 	}
 
-	request, err := http.NewRequest("POST", HUGGING_URL+"microsoft/Phi-3.5-mini-instruct/v1/chat/completions", bytes.NewBuffer(jsonData))
+	request, err := http.NewRequest("POST", HUGGING_URL+"mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return model.ChatResponse{}, err
