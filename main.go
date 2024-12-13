@@ -35,6 +35,7 @@ func main() {
 	// Route
 	router.POST("/upload", handler.UploadFile())
 	router.POST("/chat", handler.ChatAI())
+	router.POST("/text-to-speech", handler.TextToSpeech())
 
 	router.Run()
 }

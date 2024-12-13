@@ -2,12 +2,16 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"smart-home-energy/internal/helper"
 	"smart-home-energy/internal/model"
+
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 )
 
 type HTTPClient interface {
@@ -121,8 +125,6 @@ func (s *AIService) ChatWithAI(query, token string) (model.ChatResponse, error) 
 		return model.ChatResponse{}, err
 	}
 
-	fmt.Println(string(body))
-
 	var chatResponse model.ChatResponse
 
 	err = json.Unmarshal(body, &chatResponse)
@@ -132,4 +134,73 @@ func (s *AIService) ChatWithAI(query, token string) (model.ChatResponse, error) 
 	}
 
 	return chatResponse, nil
+}
+
+func (s *AIService) GenerateAudioFromElevenLabs(text string) ([]byte, error) {
+	ELEVENLAB_TOKEN, err := helper.GetToken("ELEVENLAB_TOKEN")
+	if err != nil {
+		fmt.Printf("error : %s", err.Error())
+		return nil, err
+	}
+
+	inputs := model.TextToSpeechPayload{
+		Text:    text,
+		ModelId: "eleven_multilingual_v2",
+	}
+
+	jsonData, err := json.Marshal(inputs)
+	if err != nil {
+		fmt.Printf("error encoding JSON: %s", err.Error())
+		return nil, err
+	}
+
+	request, err := http.NewRequest("POST", "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM", bytes.NewBuffer(jsonData))
+	if err != nil {
+		fmt.Printf("error creating request: %s", err.Error())
+		return nil, err
+	}
+
+	request.Header.Set("xi-api-key", ELEVENLAB_TOKEN)
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := s.Client.Do(request)
+	if err != nil {
+		fmt.Printf("error creating request: %s", err.Error())
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("errors: %s", http.StatusText(response.StatusCode))
+	}
+
+	audioData, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return audioData, nil
+}
+
+func (s *AIService) UploadAudioToCloudinary(filePath string) (string, error) {
+	cld, err := helper.InitCloudinary()
+	if err != nil {
+		fmt.Printf("Error call InitCloudinary function: %v", err)
+	}
+
+	var ctx = context.Background()
+
+	// Unggah file ke Cloudinary
+	uploadResult, err := cld.Upload.Upload(ctx, filePath, uploader.UploadParams{
+		ResourceType: "video",
+		Folder:       "audio_files",
+		PublicID:     "my_audio",
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return uploadResult.SecureURL, nil
 }

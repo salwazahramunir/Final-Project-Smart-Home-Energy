@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"smart-home-energy/internal/model"
@@ -17,8 +18,8 @@ var fileService = &service.FileService{}
 var aiService = &service.AIService{Client: &http.Client{}}
 
 // Retrieve the Hugging Face token from the environment variables
-func getToken() (string, error) {
-	token := os.Getenv("HUGGINGFACE_TOKEN")
+func getToken(key string) (string, error) {
+	token := os.Getenv(key)
 
 	if token == "" {
 		return "", errors.New("HUGGINGFACE_TOKEN is not set in the .env file")
@@ -57,7 +58,7 @@ func UploadFile() gin.HandlerFunc {
 			return
 		}
 
-		token, err := getToken()
+		token, err := getToken("HUGGINGFACE_TOKEN")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -90,7 +91,7 @@ func ChatAI() gin.HandlerFunc {
 			return
 		}
 
-		token, err := getToken()
+		token, err := getToken("HUGGINGFACE_TOKEN")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -105,6 +106,47 @@ func ChatAI() gin.HandlerFunc {
 		response := model.ResponseSuccess{
 			Status: "Success",
 			Answer: chatResponse.Choices[0].Message.Content,
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
+func TextToSpeech() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var request model.TextToSpeechRequest
+
+		// bind the form data
+		if err := c.ShouldBind(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// convert text to audio using elevenlabs
+		audioData, err := aiService.GenerateAudioFromElevenLabs(request.Text)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// save temporary audio in local files
+		tempFile := "output_audio.mp3"
+		err = os.WriteFile(tempFile, audioData, 0644)
+		if err != nil {
+			fmt.Printf("Error saving audio file: %s", err.Error())
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		}
+		defer os.Remove(tempFile) // delete temporary audio in local files
+
+		// upload audio to Cloudinary
+		cloudinaryURL, err := aiService.UploadAudioToCloudinary(tempFile)
+		if err != nil {
+			log.Fatalf("Error uploading to Cloudinary: %v", err)
+		}
+
+		response := model.ResponseSuccess{
+			Status: "Success",
+			Answer: cloudinaryURL,
 		}
 
 		c.JSON(http.StatusOK, response)

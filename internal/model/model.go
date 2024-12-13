@@ -1,5 +1,6 @@
 package model
 
+// TAPAS STRUCT
 type Inputs struct {
 	Table map[string][]string `json:"table"`
 	Query string              `json:"query"`
@@ -21,6 +22,7 @@ type Message struct {
 	Content string `json:"content"`
 }
 
+// AI CHAT STRUCT
 type ChatRequest struct {
 	Model      string    `json:"model"`
 	Messages   []Message `json:"messages"`
@@ -37,4 +39,9 @@ type Choice struct {
 
 type ChatResponse struct {
 	Choices []Choice `json:"choices"`
+}
+
+type TextToSpeechPayload struct {
+	Text    string `json:"text"`
+	ModelId string `json:"model_id"`
 }
