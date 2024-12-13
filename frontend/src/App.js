@@ -7,6 +7,9 @@ function App() {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState("");
 
+  const [isListening, setIsListening] = useState(false);
+  const [language, setLanguage] = useState('en-US'); // Default ke bahasa Inggris
+
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
   };
@@ -37,6 +40,39 @@ function App() {
     }
   };
 
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = language; // Bahasa yang dipilih
+
+  const handleStart = () => {
+    setIsListening(true);
+    recognition.start();
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0].transcript)
+        .join('');
+      setQuery(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Error occurred:', event.error);
+    };
+  };
+
+  const handleStop = () => {
+    setIsListening(false);
+    recognition.stop();
+  };
+
+  const handleLanguageChange = (event) => {
+    setLanguage(event.target.value);
+  };
+
   return (
     <div style={{ maxWidth: "600px", margin: "0 auto", padding: "20px", textAlign: "center", fontFamily: "Arial, sans-serif" }}>
       <h1 style={{ color: "#333", marginBottom: "20px" }}>Data Analysis Chatbot</h1>
@@ -58,6 +94,29 @@ function App() {
         <button onClick={handleChat} style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
           Chat
         </button>
+      </div>
+      <div style={{ marginBottom: '10px' }}>
+        <label htmlFor="language">Select Language: </label>
+        <select
+          id="language"
+          value={language}
+          onChange={handleLanguageChange}
+          style={{ padding: '5px' }}
+        >
+          <option value="en-US">English (US)</option>
+          <option value="id-ID">Bahasa Indonesia</option>
+          <option value="fr-FR">French</option>
+          <option value="es-ES">Spanish</option>
+          <option value="zh-CN">Mandarin (Simplified)</option>
+          {/* Tambahkan bahasa lain sesuai kebutuhan */}
+        </select>
+      </div>
+      <div>
+        {isListening ? (
+          <button onClick={handleStop}>Stop Listening</button>
+        ) : (
+          <button onClick={handleStart}>Start Listening</button>
+        )}
       </div>
       <div style={{ marginTop: "20px", padding: "10px", border: "1px solid #ccc", borderRadius: "4px", backgroundColor: "#f9f9f9" }}>
         <h2>Response</h2>
