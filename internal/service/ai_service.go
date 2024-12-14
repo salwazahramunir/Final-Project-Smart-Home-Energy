@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"smart-home-energy/internal/helper"
 	"smart-home-energy/internal/model"
 
@@ -24,7 +25,7 @@ type AIService struct {
 
 const HUGGING_URL = "https://api-inference.huggingface.co/models/"
 
-func (s *AIService) AnalyzeData(table map[string][]string, query, token string) (string, error) {
+func (s *AIService) AnalyzeData(table map[string][]string, query string) (string, error) {
 	if len(table) == 0 {
 		return "", errors.New("table data is empty")
 	}
@@ -50,7 +51,9 @@ func (s *AIService) AnalyzeData(table map[string][]string, query, token string) 
 		return "", err
 	}
 
-	request.Header.Set("Authorization", "Bearer "+token)
+	HUGGINGFACE_TOKEN := os.Getenv("HUGGINGFACE_TOKEN")
+
+	request.Header.Set("Authorization", "Bearer "+HUGGINGFACE_TOKEN)
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := s.Client.Do(request)
@@ -76,7 +79,7 @@ func (s *AIService) AnalyzeData(table map[string][]string, query, token string) 
 	return tapasResponse.Cells[0], nil
 }
 
-func (s *AIService) ChatWithAI(query, token string) (model.ChatResponse, error) {
+func (s *AIService) ChatWithAI(query string) (model.ChatResponse, error) {
 	// TODO: answer here
 	inputs := model.ChatRequest{
 		Model: "mistralai/Mistral-Nemo-Instruct-2407",
@@ -94,22 +97,24 @@ func (s *AIService) ChatWithAI(query, token string) (model.ChatResponse, error) 
 
 	jsonData, err := json.Marshal(inputs)
 	if err != nil {
-		fmt.Println("Error encoding JSON:", err)
+		fmt.Printf("Error encoding JSON: %s", err.Error())
 		return model.ChatResponse{}, err
 	}
 
 	request, err := http.NewRequest("POST", HUGGING_URL+"mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions", bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Println("Error creating request:", err)
+		fmt.Printf("Error creating request: %s", err.Error())
 		return model.ChatResponse{}, err
 	}
 
-	request.Header.Set("Authorization", "Bearer "+token)
+	HUGGINGFACE_TOKEN := os.Getenv("HUGGINGFACE_TOKEN")
+
+	request.Header.Set("Authorization", "Bearer "+HUGGINGFACE_TOKEN)
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := s.Client.Do(request)
 	if err != nil {
-		fmt.Println("Error creating request:", err)
+		fmt.Printf("Error creating request: %s", err.Error())
 		return model.ChatResponse{}, err
 	}
 
@@ -119,17 +124,11 @@ func (s *AIService) ChatWithAI(query, token string) (model.ChatResponse, error) 
 		return model.ChatResponse{}, fmt.Errorf("errors: %s", http.StatusText(response.StatusCode))
 	}
 
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Println("Error read body:", err)
-		return model.ChatResponse{}, err
-	}
-
 	var chatResponse model.ChatResponse
 
-	err = json.Unmarshal(body, &chatResponse)
+	err = json.NewDecoder(response.Body).Decode(&chatResponse)
 	if err != nil {
-		fmt.Println("Error unmarshalling:", err)
+		fmt.Println("Error decode JSON:", err)
 		return model.ChatResponse{}, err
 	}
 
@@ -137,12 +136,6 @@ func (s *AIService) ChatWithAI(query, token string) (model.ChatResponse, error) 
 }
 
 func (s *AIService) GenerateAudioFromElevenLabs(text string) ([]byte, error) {
-	ELEVENLAB_TOKEN, err := helper.GetToken("ELEVENLAB_TOKEN")
-	if err != nil {
-		fmt.Printf("error : %s", err.Error())
-		return nil, err
-	}
-
 	inputs := model.TextToSpeechPayload{
 		Text:    text,
 		ModelId: "eleven_multilingual_v2",
@@ -159,6 +152,8 @@ func (s *AIService) GenerateAudioFromElevenLabs(text string) ([]byte, error) {
 		fmt.Printf("error creating request: %s", err.Error())
 		return nil, err
 	}
+
+	ELEVENLAB_TOKEN := os.Getenv("ELEVENLAB_TOKEN")
 
 	request.Header.Set("xi-api-key", ELEVENLAB_TOKEN)
 	request.Header.Set("Content-Type", "application/json")

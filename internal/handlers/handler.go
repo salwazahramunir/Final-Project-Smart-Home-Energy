@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -17,27 +16,17 @@ import (
 var fileService = &service.FileService{}
 var aiService = &service.AIService{Client: &http.Client{}}
 
-// Retrieve the Hugging Face token from the environment variables
-func getToken(key string) (string, error) {
-	token := os.Getenv(key)
-
-	if token == "" {
-		return "", errors.New("HUGGINGFACE_TOKEN is not set in the .env file")
-	}
-
-	return token, nil
-}
-
 func UploadFile() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var request model.UploadFileRequest
 
-		// Bind the form data
+		// bind the form data
 		if err := c.ShouldBind(&request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
+		// open the uploaded file
 		file, err := request.File.Open()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to open file"})
@@ -45,36 +34,33 @@ func UploadFile() gin.HandlerFunc {
 		}
 		defer file.Close()
 
-		// Read file content into a string
+		// read file content into a string
 		fileContent, err := io.ReadAll(file)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to read file content"})
 			return
 		}
 
+		// change file content into table data
 		dataTable, err := fileService.ProcessFile(string(fileContent))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		token, err := getToken("HUGGINGFACE_TOKEN")
+		// analysis of uploaded data
+		responseAI, err := aiService.AnalyzeData(dataTable, request.Query)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		responseAI, err := aiService.AnalyzeData(dataTable, request.Query, token)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
+		// format output
 		text := fmt.Sprintf("From the provided data, %s: %s", request.Query, responseAI)
 
 		response := model.ResponseSuccess{
 			Status: "Success",
-			Answer: text,
+			Data:   text,
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -85,27 +71,23 @@ func ChatAI() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var request model.ChatAIRequest
 
-		// Bind the form data
+		// bind the form data
 		if err := c.ShouldBind(&request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		token, err := getToken("HUGGINGFACE_TOKEN")
+		// call service to chat with AI
+		chatResponse, err := aiService.ChatWithAI(request.Query)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		chatResponse, err := aiService.ChatWithAI(request.Query, token)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
+		// format output
 		response := model.ResponseSuccess{
 			Status: "Success",
-			Answer: chatResponse.Choices[0].Message.Content,
+			Data:   chatResponse.Choices[0].Message.Content,
 		}
 
 		c.JSON(http.StatusOK, response)
@@ -144,9 +126,10 @@ func TextToSpeech() gin.HandlerFunc {
 			log.Fatalf("Error uploading to Cloudinary: %v", err)
 		}
 
+		// format output
 		response := model.ResponseSuccess{
 			Status: "Success",
-			Answer: cloudinaryURL,
+			Data:   cloudinaryURL,
 		}
 
 		c.JSON(http.StatusOK, response)

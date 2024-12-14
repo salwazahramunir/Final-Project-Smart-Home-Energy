@@ -5,12 +5,12 @@ import (
 	"os"
 )
 
-func GetToken(key string) (string, error) {
-	token := os.Getenv(key)
+func GetENV(key string) (string, error) {
+	value := os.Getenv(key)
 
-	if token == "" {
+	if value == "" {
 		return "", fmt.Errorf("variabel %s is not set in the .env file", key)
 	}
 
-	return token, nil
+	return value, nil
 }
